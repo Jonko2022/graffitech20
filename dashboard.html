@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="eng">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRAFFITECH20 STATIONERY</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div id="header">
+    <div class="topnav" id="myTopnav">
+      <a href="index.html">
+      <img src="images/g20logo.png" class="logo"></a>
+      <a href="sales.html">Sales</a>
+      <a href="expenses.html">Expenses</a>
+    </div>
+  </div>
+    <h2>SALES SUMMARY DASHBOARD</h2>
+  <div class="summarycards">
+    <div class="card">
+      <h3>Balance B/F</h3>
+      <p>MWK0,00</p>
+    </div>
+
+    <div class="card">
+      <h3>Accessories Value</h3>
+      <p>MWK0,00</p>
+    </div>
+    <div class="card">
+      <h3>Total Sales</h3>
+      <p id="totalSales">MWK0.00</p>
+    </div>
+    <div class="card">
+      <h3>Total Expenses</h3>
+      <p id="totalExpenses">MWK0.00</p>
+    </div>
+    <div class="card">
+      <h3>Net Profit</h3>
+      <p id="netProfit">MWK0.00</p>
+    </div>
+  </div>
+    
+  <footer>
+    <p>&copy; 2025 GRAFFITECH20. All rights reserved.</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load sales and expenses from localStorage
+      const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+
+      // Calculate totals
+      const totalSales = sales.reduce((sum, sale) => sum + (Number(sale.total) || 0), 0);
+      const totalExpenses = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+      // Update UI
+      const totalSalesElement = document.getElementById('totalSales');
+      const totalExpensesElement = document.getElementById('totalExpenses');
+      const netProfitElement = document.getElementById('netProfit');
+
+      totalSalesElement.textContent = `MWK${totalSales.toFixed(2)}`;
+      totalExpensesElement.textContent = `MWK${totalExpenses.toFixed(2)}`;
+
+      // Net profit = total sales - total expenses
+      const netProfit = totalSales - totalExpenses;
+      netProfitElement.textContent = `MWK${netProfit.toFixed(2)}`;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="eng">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRAFFITECH20 STATIONERYtitle>
+  <link rel="stylesheet" href="index.css">
+  
+</head>
+<body>
+  <div id="header">
+    <div class="topnav" id="myTopnav">
+      <a href="index.html">
+      <img src="images/g20logo.png" class="logo"></a>
+      <a href="sales.html">Sales</a>
+      <a href="expenses.html">Expenses</a>
+    </div>
+  </div>
+  
+  <div class="login-form">
+    <h2>WELCOME TO GRAFFITECH 20</h2>
+    <h3>Please log in to continue.</h3>
+    <!-- form must use multipart/form-data to upload files -->
+    <form action="submit_registration.php" method="post" enctype="multipart/form-data">
+          
+      <label for="email">Username:</label>
+      <input type="text" id="email" name="email" required>
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" required>
+      <button type="submit" value="submit">Login</button>
+    </form>
+  <footer>
+    <p>&copy; 2025 GRAFFITECH20. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // multi-user login using localStorage 'users' array
+    function getUsers() {
+      try {
+        return JSON.parse(localStorage.getItem('users') || '[]');
+      } catch {
+        return [];
+      }
+    }
+    
+    function saveUsers(users) {
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+
+    // Define default users and ensure they exist
+    (function ensureDefaultUsers() {
+      const defaultUsers = [
+        { username: 'Jonko', password: 'Jonko@2019!' },
+        { username: 'Pak2025', password: 'Pakg20@2025!' },
+        { username: 'Bleston2025', password: 'Blessg20@2025!' },
+        { username: 'Cetridah2025', password: 'Cetridahg20@2025!' }
+      ];
+      
+      const existingUsers = getUsers();
+      if (!existingUsers.length) {
+        saveUsers(defaultUsers);
+        console.log('Default users created');
+      }
+    })();
+
+    // Keep the login handler
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.querySelector('form[action="submit_registration.php"]') || document.querySelector('form');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const users = getUsers();
+        const match = users.find(u => u.username === username && u.password === password);
+        if (match) {
+          localStorage.setItem('loggedIn', 'true');
+          localStorage.setItem('currentUser', username);
+          window.location.href = 'dashboard.html';
+        } else {
+          alert('Invalid username or password');
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

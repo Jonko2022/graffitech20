@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="eng">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRAFFITECH20 STATIONERY</title>
+  <link rel="stylesheet" href="sales.css">
+</head>
+<body>
+  <div id="header">
+    <div class="topnav" id="myTopnav">
+      <a href="index.html">
+      <img src="images/g20logo.png" class="logo"></a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="sales.html">Sales</a>
+    </div>
+  </div>
+  
+  <div class="expenses-form">
+    <h2>GRAFFITECH20 EXPENSES SUMMARY</h2>
+    <!-- form must use multipart/form-data to upload files -->
+    <form action="submit_registration.php" method="post" enctype="multipart/form-data">
+     
+      <label for="date">Date:</label>
+      <input type="date" id="date" name="date" required>
+      <!-- Proof of payment upload (image) -->
+      <label for="amount">Name of Expenditure:</label>
+      <input type="text" id="expensename" name="expensename" required>
+      <label for="amount">Expenditure Amount:</label>
+      <input type="text" id="expenseamount" name="expensesamount" required>
+      <button type="submit" value="Submit">Submit</button>
+    </form>
+  </div>
+  <div class="expenses-table">
+      <h3>Expenses History</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Name of Ependiture</th>
+            <th>Expenditure Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Table rows will be populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+  <footer>
+    <p>&copy; 2025 GRAFFITECH20. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Require a login flag in localStorage, otherwise redirect to index.html
+    function requireLogin() {
+      const loggedIn = localStorage.getItem('loggedIn');
+      if (loggedIn !== 'true') {
+        alert('Please log in to view the expenses page.');
+        window.location.href = 'index.html';
+        return false;
+      }
+      return true;
+    }
+
+    const form = document.querySelector('form');
+    const tableBody = document.querySelector('.expenses-table tbody');
+
+    document.addEventListener('DOMContentLoaded', function () {
+      if (!requireLogin()) return;
+      loadExpensesData();
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!requireLogin()) return;
+
+      const date = document.getElementById('date').value;
+      const name = document.getElementById('expensename').value.trim();
+      // Allow commas in input by removing them before parseFloat
+      const rawAmount = document.getElementById('expenseamount').value.replace(/,/g, '');
+      const amount = parseFloat(rawAmount) || 0;
+
+      const expenseEntry = {
+        date: date,
+        name: name,
+        amount: amount
+      };
+
+      saveExpenseEntry(expenseEntry);
+      addExpenseToTable(expenseEntry);
+      form.reset();
+    });
+
+    function saveExpenseEntry(entry) {
+      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+      expenses.push(entry);
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+    }
+
+    function loadExpensesData() {
+      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+      expenses.forEach(exp => addExpenseToTable(exp));
+    }
+
+    function addExpenseToTable(exp) {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${exp.date}</td>
+        <td>${escapeHtml(exp.name)}</td>
+        <td>MWK${exp.amount.toFixed(2)}</td>
+      `;
+      tableBody.appendChild(row);
+    }
+
+    // basic html-escape to avoid accidental markup injection
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
