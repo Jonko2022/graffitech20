@@ -146,34 +146,3 @@
   </script>
 </body>
 </html>
-
--- Run this in Supabase SQL editor (replace public schema if needed)
-
-create table if not exists public.sales (
-  id bigserial primary key,
-  date text,
-  salesAmount numeric,
-  accessoriesAmount numeric,
-  total numeric,
-  "user" text,
-  created_at timestamptz default now()
-);
-
-create table if not exists public.expenses (
-  id bigserial primary key,
-  date text,
-  name text,
-  amount numeric,
-  "user" text,
-  created_at timestamptz default now()
-);
-
--- Enable RLS and allow anon select/insert for quick testing (not secure long-term)
-alter table public.sales enable row level security;
-alter table public.expenses enable row level security;
-
-create policy "anon_select_sales" on public.sales for select using (true);
-create policy "anon_insert_sales" on public.sales for insert with check (true);
-
-create policy "anon_select_expenses" on public.expenses for select using (true);
-create policy "anon_insert_expenses" on public.expenses for insert with check (true);
