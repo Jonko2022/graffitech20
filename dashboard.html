@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GRAFFITECH20 STATIONERY</title>
   <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase-config.js"></script>
 </head>
 <body>
   <div id="header">
@@ -46,27 +48,32 @@
   </footer>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Load sales and expenses from localStorage
-      const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  document.addEventListener('DOMContentLoaded', async function() {
+    // use the shared client created in supabase-config.js
+    const supabase = window.SUPABASE;
+    if (!supabase) {
+      console.error('Supabase client not initialized. Check supabase-config.js and CDN include.');
+      return;
+    }
 
-      // Calculate totals
-      const totalSales = sales.reduce((sum, sale) => sum + (Number(sale.total) || 0), 0);
-      const totalExpenses = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    try {
+      const { data: sales = [], error: salesErr } = await supabase.from('sales').select('*');
+      if (salesErr) throw salesErr;
 
-      // Update UI
-      const totalSalesElement = document.getElementById('totalSales');
-      const totalExpensesElement = document.getElementById('totalExpenses');
-      const netProfitElement = document.getElementById('netProfit');
+      const { data: expenses = [], error: expensesErr } = await supabase.from('expenses').select('*');
+      if (expensesErr) throw expensesErr;
 
-      totalSalesElement.textContent = `MWK${totalSales.toFixed(2)}`;
-      totalExpensesElement.textContent = `MWK${totalExpenses.toFixed(2)}`;
+      const totalSales = (sales || []).reduce((s, sale) => s + (Number(sale.total) || 0), 0);
+      const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-      // Net profit = total sales - total expenses
-      const netProfit = totalSales - totalExpenses;
-      netProfitElement.textContent = `MWK${netProfit.toFixed(2)}`;
-    });
+      document.getElementById('totalSales').textContent = `MWK${totalSales.toFixed(2)}`;
+      document.getElementById('totalExpenses').textContent = `MWK${totalExpenses.toFixed(2)}`;
+      document.getElementById('netProfit').textContent = `MWK${(totalSales - totalExpenses).toFixed(2)}`;
+    } catch (err) {
+      console.error('Error loading data:', err);
+      alert('Error loading data. See console for details.');
+    }
+  });
   </script>
 </body>
 </html>

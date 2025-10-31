@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GRAFFITECH20 STATIONERY</title>
   <link rel="stylesheet" href="sales.css">
+  <!-- add Supabase client and shared config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase-config.js"></script>
 </head>
 <body>
   <div id="header">
@@ -52,55 +55,24 @@
   </footer>
 
   <script>
-    // Require a login flag in localStorage, otherwise redirect to index.html
-    function requireLogin() {
-      const loggedIn = localStorage.getItem('loggedIn');
-      if (loggedIn !== 'true') {
-        alert('Please log in to view the expenses page.');
-        window.location.href = 'index.html';
-        return false;
-      }
-      return true;
-    }
+  document.addEventListener('DOMContentLoaded', async function () {
+    const supabase = window.SUPABASE;
+    if (!supabase) return console.error('Supabase client not initialized');
 
-    const form = document.querySelector('form');
+    const form = document.querySelector('form[action="submit_registration.php"]') || document.querySelector('form');
     const tableBody = document.querySelector('.expenses-table tbody');
 
-    document.addEventListener('DOMContentLoaded', function () {
-      if (!requireLogin()) return;
-      loadExpensesData();
-    });
-
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (!requireLogin()) return;
-
-      const date = document.getElementById('date').value;
-      const name = document.getElementById('expensename').value.trim();
-      // Allow commas in input by removing them before parseFloat
-      const rawAmount = document.getElementById('expenseamount').value.replace(/,/g, '');
-      const amount = parseFloat(rawAmount) || 0;
-
-      const expenseEntry = {
-        date: date,
-        name: name,
-        amount: amount
-      };
-
-      saveExpenseEntry(expenseEntry);
-      addExpenseToTable(expenseEntry);
-      form.reset();
-    });
-
-    function saveExpenseEntry(entry) {
-      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      expenses.push(entry);
-      localStorage.setItem('expenses', JSON.stringify(expenses));
+    async function loadExpenses() {
+      tableBody.innerHTML = '';
+      const { data, error } = await supabase.from('expenses').select('*').order('id', { ascending: false });
+      if (error) return console.error('loadExpenses error', error);
+      (data || []).forEach(addExpenseToTable);
     }
 
-    function loadExpensesData() {
-      const expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
-      expenses.forEach(exp => addExpenseToTable(exp));
+    async function saveExpense(entry) {
+      const { data, error } = await supabase.from('expenses').insert([entry]);
+      if (error) return console.error('saveExpense error', error);
+      return data && data[0];
     }
 
     function addExpenseToTable(exp) {
@@ -108,20 +80,51 @@
       row.innerHTML = `
         <td>${exp.date}</td>
         <td>${escapeHtml(exp.name)}</td>
-        <td>MWK${exp.amount.toFixed(2)}</td>
+        <td>MWK${Number(exp.amount).toFixed(2)}</td>
       `;
       tableBody.appendChild(row);
     }
 
-    // basic html-escape to avoid accidental markup injection
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const name = document.getElementById('expensename').value.trim();
+      const rawAmount = document.getElementById('expenseamount').value.replace(/,/g, '');
+      const amount = parseFloat(rawAmount) || 0;
+      const currentUser = localStorage.getItem('currentUser') || null;
+
+      const entry = { date, name, amount, user: currentUser };
+      const saved = await saveExpense(entry);
+      if (saved) {
+        tableBody.insertBefore(createRowFrom(saved), tableBody.firstChild);
+        form.reset();
+      } else {
+        alert('Error saving expense. See console.');
+      }
+    });
+
+    function createRowFrom(s) {
+      const r = document.createElement('tr');
+      r.innerHTML = `
+        <td>${s.date}</td>
+        <td>${escapeHtml(s.name)}</td>
+        <td>MWK${Number(s.amount).toFixed(2)}</td>
+      `;
+      return r;
+    }
+
     function escapeHtml(str) {
-      return String(str)
+      return String(str || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+
+    // initial load
+    await loadExpenses();
+  });
   </script>
 </body>
 </html>

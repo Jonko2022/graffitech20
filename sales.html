@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GRAFFITECH20 STATIONERY</title>
   <link rel="stylesheet" href="sales.css">
+
+  <!-- Supabase client (CDN) and shared config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase-config.js"></script>
 </head>
 <body>
   <div id="header">
@@ -55,71 +59,121 @@
   </footer>
 
   <script>
-    // Require login check using default users from index.html
-    document.addEventListener('DOMContentLoaded', function () {
-      function requireLogin() {
-        if (localStorage.getItem('loggedIn') !== 'true') {
-          window.location.href = 'index.html';
-          return false;
+  document.addEventListener('DOMContentLoaded', async function () {
+    const supabase = window.SUPABASE;
+    if (!supabase) return console.error('Supabase client not initialized');
+
+    const form = document.querySelector('form[action="submit_registration.php"]') || document.querySelector('form');
+    const tableBody = document.querySelector('.sales-table tbody');
+
+    async function loadSales() {
+      tableBody.innerHTML = '';
+      const { data, error } = await supabase.from('sales').select('*').order('id', { ascending: false });
+      if (error) return console.error('loadSales error', error);
+      (data || []).forEach(addSaleToTable);
+    }
+
+    async function saveSale(entry) {
+      // sanitize / ensure correct types
+      entry.salesAmount = Number(entry.salesAmount) || 0;
+      entry.accessoriesAmount = Number(entry.accessoriesAmount) || 0;
+      entry.total = Number(entry.total) || 0;
+      entry.date = entry.date || new Date().toISOString().slice(0,10);
+
+      try {
+        // ask Supabase to return the inserted row
+        const { data, error } = await supabase.from('sales').insert([entry]).select();
+        if (error) {
+          // show full error object for debugging
+          console.error('saveSale error', error);
+          alert('Save failed: ' + (error.message || JSON.stringify(error)));
+          return null;
         }
-        return true;
+        return data && data[0];
+      } catch (err) {
+        console.error('saveSale exception', err);
+        alert('Save exception: check console');
+        return null;
       }
+    }
 
-      // Check login status immediately
-      if (!requireLogin()) return;
+    function addSaleToTable(sale) {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${sale.date}</td>
+        <td>MWK${Number(sale.salesAmount).toFixed(2)}</td>
+        <td>MWK${Number(sale.accessoriesAmount).toFixed(2)}</td>
+        <td>MWK${Number(sale.total).toFixed(2)}</td>
+      `;
+      tableBody.appendChild(row);
+    }
 
-      const form = document.querySelector('form');
-      const tableBody = document.querySelector('.sales-table tbody');
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const date = document.getElementById('date').value;
+      const salesAmount = (document.getElementById('salesamount').value || '').replace(/,/g, '');
+      const accessoriesAmount = ((document.getElementById('accessoriesamount') || { value: '0' }).value || '').replace(/,/g, '');
+      const salesAmtNum = parseFloat(salesAmount) || 0;
+      const accAmtNum = parseFloat(accessoriesAmount) || 0;
+      const total = salesAmtNum + accAmtNum;
+      const currentUser = localStorage.getItem('currentUser') || null;
 
-      // Load existing sales data
-      loadSalesData();
+      const saleEntry = { date, salesAmount: salesAmtNum, accessoriesAmount: accAmtNum, total, user: currentUser };
 
-      // Handle form submission
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!requireLogin()) return;
-
-        const date = document.getElementById('date').value;
-        const salesAmount = parseFloat(document.getElementById('salesamount').value.replace(/,/g, '')) || 0;
-        const accessoriesAmount = parseFloat(document.getElementById('accessoriesamount').value.replace(/,/g, '')) || 0;
-        const total = salesAmount + accessoriesAmount;
-
-        const saleEntry = {
-          date: date,
-          salesAmount: salesAmount,
-          accessoriesAmount: accessoriesAmount,
-          total: total,
-          user: localStorage.getItem('currentUser') // Track who made the entry
-        };
-
-        saveSaleEntry(saleEntry);
-        addSaleToTable(saleEntry);
+      const saved = await saveSale(saleEntry);
+      if (saved) {
+        // insert returned row at top
+        tableBody.insertBefore(createRowFrom(saved), tableBody.firstChild);
         form.reset();
-      });
-
-      function saveSaleEntry(entry) {
-        const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-        sales.push(entry);
-        localStorage.setItem('sales', JSON.stringify(sales));
-      }
-
-      function loadSalesData() {
-        tableBody.innerHTML = '';
-        const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-        sales.forEach(addSaleToTable);
-      }
-
-      function addSaleToTable(sale) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${sale.date}</td>
-          <td>MWK${Number(sale.salesAmount).toFixed(2)}</td>
-          <td>MWK${Number(sale.accessoriesAmount).toFixed(2)}</td>
-          <td>MWK${Number(sale.total).toFixed(2)}</td>
-        `;
-        tableBody.appendChild(row);
-      }
+      } // saveSale already alerts on error
     });
+
+    // helper to create row from returned record
+    function createRowFrom(s) {
+      const r = document.createElement('tr');
+      r.innerHTML = `
+        <td>${s.date}</td>
+        <td>MWK${Number(s.salesAmount).toFixed(2)}</td>
+        <td>MWK${Number(s.accessoriesAmount).toFixed(2)}</td>
+        <td>MWK${Number(s.total).toFixed(2)}</td>
+      `;
+      return r;
+    }
+
+    // initial load
+    await loadSales();
+  });
   </script>
 </body>
 </html>
+
+-- Run this in Supabase SQL editor (replace public schema if needed)
+
+create table if not exists public.sales (
+  id bigserial primary key,
+  date text,
+  salesAmount numeric,
+  accessoriesAmount numeric,
+  total numeric,
+  "user" text,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.expenses (
+  id bigserial primary key,
+  date text,
+  name text,
+  amount numeric,
+  "user" text,
+  created_at timestamptz default now()
+);
+
+-- Enable RLS and allow anon select/insert for quick testing (not secure long-term)
+alter table public.sales enable row level security;
+alter table public.expenses enable row level security;
+
+create policy "anon_select_sales" on public.sales for select using (true);
+create policy "anon_insert_sales" on public.sales for insert with check (true);
+
+create policy "anon_select_expenses" on public.expenses for select using (true);
+create policy "anon_insert_expenses" on public.expenses for insert with check (true);
