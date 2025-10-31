@@ -99,15 +99,51 @@
       }
     }
 
+    // replace addSaleToTable and createRowFrom with this robust version
+    function getField(obj, ...keys) {
+      for (const k of keys) {
+        if (obj == null) continue;
+        if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] != null) return obj[k];
+      }
+      return null;
+    }
+
+    function formatCurrency(v) {
+      const n = Number(v || 0);
+      return `MWK${n.toFixed(2)}`;
+    }
+
     function addSaleToTable(sale) {
+      const date = getField(sale, 'date', 'Date') || '';
+      const salesAmt = getField(sale, 'sales_amount', 'salesAmount', 'salesamount') || 0;
+      const accAmt = getField(sale, 'accessories_amount', 'accessoriesAmount', 'accessoriesamount') || 0;
+      const total = getField(sale, 'total') || (Number(salesAmt) + Number(accAmt)) || 0;
+
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${sale.date}</td>
-        <td>MWK${Number(sale.salesAmount).toFixed(2)}</td>
-        <td>MWK${Number(sale.accessoriesAmount).toFixed(2)}</td>
-        <td>MWK${Number(sale.total).toFixed(2)}</td>
+        <td>${date}</td>
+        <td>${formatCurrency(salesAmt)}</td>
+        <td>${formatCurrency(accAmt)}</td>
+        <td>${formatCurrency(total)}</td>
       `;
       tableBody.appendChild(row);
+    }
+
+    // helper to create row from returned record (handles snake_case/camelCase)
+    function createRowFrom(s) {
+      const r = document.createElement('tr');
+      const date = getField(s, 'date', 'Date') || '';
+      const salesAmt = getField(s, 'sales_amount', 'salesAmount', 'salesamount') || 0;
+      const accAmt = getField(s, 'accessories_amount', 'accessoriesAmount', 'accessoriesamount') || 0;
+      const total = getField(s, 'total') || (Number(salesAmt) + Number(accAmt)) || 0;
+
+      r.innerHTML = `
+        <td>${date}</td>
+        <td>${formatCurrency(salesAmt)}</td>
+        <td>${formatCurrency(accAmt)}</td>
+        <td>${formatCurrency(total)}</td>
+      `;
+      return r;
     }
 
     form.addEventListener('submit', async function (e) {
@@ -142,18 +178,6 @@
         alert('Error saving sale. Data will appear after refresh.');
       }
     });
-
-    // helper to create row from returned record
-    function createRowFrom(s) {
-      const r = document.createElement('tr');
-      r.innerHTML = `
-        <td>${s.date}</td>
-        <td>MWK${Number(s.salesAmount).toFixed(2)}</td>
-        <td>MWK${Number(s.accessoriesAmount).toFixed(2)}</td>
-        <td>MWK${Number(s.total).toFixed(2)}</td>
-      `;
-      return r;
-    }
 
     // initial load
     await loadSales();
