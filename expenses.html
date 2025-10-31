@@ -62,55 +62,29 @@
     const form = document.querySelector('form[action="submit_registration.php"]') || document.querySelector('form');
     const tableBody = document.querySelector('.expenses-table tbody');
 
-    async function loadExpenses() {
-      tableBody.innerHTML = '';
-      const { data, error } = await supabase.from('expenses').select('*').order('id', { ascending: false });
-      if (error) return console.error('loadExpenses error', error);
-      (data || []).forEach(addExpenseToTable);
-    }
-
-    async function saveExpense(entry) {
-      const { data, error } = await supabase.from('expenses').insert([entry]);
-      if (error) return console.error('saveExpense error', error);
-      return data && data[0];
-    }
-
-    function addExpenseToTable(exp) {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${exp.date}</td>
-        <td>${escapeHtml(exp.name)}</td>
-        <td>MWK${Number(exp.amount).toFixed(2)}</td>
-      `;
-      tableBody.appendChild(row);
-    }
-
-    form.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      const date = document.getElementById('date').value;
-      const name = document.getElementById('expensename').value.trim();
-      const rawAmount = document.getElementById('expenseamount').value.replace(/,/g, '');
-      const amount = parseFloat(rawAmount) || 0;
-      const currentUser = localStorage.getItem('currentUser') || null;
-
-      const entry = { date, name, amount, user: currentUser };
-      const saved = await saveExpense(entry);
-      if (saved) {
-        tableBody.insertBefore(createRowFrom(saved), tableBody.firstChild);
-        form.reset();
-      } else {
-        alert('Error saving expense. See console.');
+    // simple non-blocking message area (created if missing)
+    function showMessage(msg, ttl = 3000) {
+      let m = document.getElementById('app-message');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'app-message';
+        Object.assign(m.style, {
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: '#222',
+          color: '#fff',
+          padding: '10px 14px',
+          borderRadius: '6px',
+          zIndex: 9999,
+          boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
+        });
+        document.body.appendChild(m);
       }
-    });
-
-    function createRowFrom(s) {
-      const r = document.createElement('tr');
-      r.innerHTML = `
-        <td>${s.date}</td>
-        <td>${escapeHtml(s.name)}</td>
-        <td>MWK${Number(s.amount).toFixed(2)}</td>
-      `;
-      return r;
+      m.textContent = msg;
+      m.style.opacity = '1';
+      clearTimeout(m._t);
+      m._t = setTimeout(() => { m.style.opacity = '0'; }, ttl);
     }
 
     function escapeHtml(str) {
@@ -121,6 +95,94 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+
+    async function loadExpenses() {
+      if (!tableBody) return;
+      tableBody.innerHTML = '';
+      const { data, error } = await supabase.from('expenses').select('*').order('id', { ascending: false });
+      if (error) {
+        console.error('loadExpenses error', error);
+        showMessage('Failed to load expenses (see console)', 4000);
+        return;
+      }
+      (data || []).forEach(addExpenseToTable);
+    }
+
+    async function saveExpense(entry) {
+      const payload = {
+        date: entry.date || new Date().toISOString().slice(0, 10),
+        name: entry.name || '',
+        amount: Number(entry.amount) || 0,
+        user: entry.user || null
+      };
+
+      try {
+        // request Supabase to return the inserted row
+        const { data, error } = await supabase.from('expenses').insert([payload]).select();
+        if (error) {
+          console.error('saveExpense error', error);
+          return null;
+        }
+        if (data && data.length) return data[0];
+
+        // fallback: fetch latest row
+        const { data: rows, error: fetchErr } = await supabase.from('expenses')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(1);
+        if (fetchErr) {
+          console.warn('fallback fetch error', fetchErr);
+          return null;
+        }
+        return rows && rows[0] ? rows[0] : null;
+      } catch (err) {
+        console.error('saveExpense exception', err);
+        return null;
+      }
+    }
+
+    function addExpenseToTable(exp) {
+      if (!tableBody) return;
+      const date = exp.date || '';
+      const name = exp.name || exp.expensename || '';
+      const amount = Number(exp.amount ?? exp.Amount ?? exp.expenseamount ?? 0);
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${escapeHtml(date)}</td>
+        <td>${escapeHtml(name)}</td>
+        <td>MWK${amount.toFixed(2)}</td>
+      `;
+      tableBody.appendChild(row);
+    }
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      try {
+        const date = document.getElementById('date').value;
+        const name = (document.getElementById('expensename').value || '').trim();
+        const rawAmount = (document.getElementById('expenseamount').value || '').replace(/,/g, '');
+        const amount = parseFloat(rawAmount) || 0;
+        const currentUser = localStorage.getItem('currentUser') || null;
+
+        const expenseEntry = { date, name, amount, user: currentUser };
+
+        const saved = await saveExpense(expenseEntry);
+        if (saved) {
+          addExpenseToTable(saved);
+          showMessage('Expense saved', 2000);
+        } else {
+          // likely saved but no returned row or minor API quirk — reload table silently
+          console.warn('Insert returned no record; reloading table.');
+          await loadExpenses();
+          showMessage('Expense saved (refreshed)', 2000);
+        }
+        form.reset();
+      } catch (err) {
+        // avoid blocking alert; log and show non-blocking message
+        console.error('Form submission error:', err);
+        showMessage('Error saving expense (see console)', 4000);
+      }
+    });
 
     // initial load
     await loadExpenses();

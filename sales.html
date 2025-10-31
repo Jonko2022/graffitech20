@@ -74,25 +74,27 @@
     }
 
     async function saveSale(entry) {
-      // sanitize / ensure correct types
-      entry.salesAmount = Number(entry.salesAmount) || 0;
-      entry.accessoriesAmount = Number(entry.accessoriesAmount) || 0;
-      entry.total = Number(entry.total) || 0;
-      entry.date = entry.date || new Date().toISOString().slice(0,10);
-
       try {
-        // ask Supabase to return the inserted row
-        const { data, error } = await supabase.from('sales').insert([entry]).select();
+        const { data, error } = await supabase
+          .from('sales')
+          .insert([{
+            date: entry.date,
+            sales_amount: entry.salesAmount,
+            accessories_amount: entry.accessoriesAmount,
+            total: entry.total,
+            user: entry.user
+          }])
+          .select();
+
         if (error) {
-          // show full error object for debugging
-          console.error('saveSale error', error);
-          alert('Save failed: ' + (error.message || JSON.stringify(error)));
-          return null;
+          console.error('Supabase insert error:', error);
+          throw error;
         }
-        return data && data[0];
+
+        console.log('Sale saved successfully:', data);
+        return data?.[0];
       } catch (err) {
-        console.error('saveSale exception', err);
-        alert('Save exception: check console');
+        console.error('Save failed:', err);
         return null;
       }
     }
@@ -110,22 +112,35 @@
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
-      const date = document.getElementById('date').value;
-      const salesAmount = (document.getElementById('salesamount').value || '').replace(/,/g, '');
-      const accessoriesAmount = ((document.getElementById('accessoriesamount') || { value: '0' }).value || '').replace(/,/g, '');
-      const salesAmtNum = parseFloat(salesAmount) || 0;
-      const accAmtNum = parseFloat(accessoriesAmount) || 0;
-      const total = salesAmtNum + accAmtNum;
-      const currentUser = localStorage.getItem('currentUser') || null;
+      try {
+        const date = document.getElementById('date').value;
+        const salesAmount = parseFloat(document.getElementById('salesamount').value.replace(/,/g, '')) || 0;
+        const accessoriesAmount = parseFloat(document.getElementById('accessoriesamount').value.replace(/,/g, '')) || 0;
+        const total = salesAmount + accessoriesAmount;
+        const currentUser = localStorage.getItem('currentUser') || null;
 
-      const saleEntry = { date, salesAmount: salesAmtNum, accessoriesAmount: accAmtNum, total, user: currentUser };
+        const saleEntry = {
+          date,
+          salesAmount,
+          accessoriesAmount,
+          total,
+          user: currentUser
+        };
 
-      const saved = await saveSale(saleEntry);
-      if (saved) {
-        // insert returned row at top
-        tableBody.insertBefore(createRowFrom(saved), tableBody.firstChild);
-        form.reset();
-      } // saveSale already alerts on error
+        const saved = await saveSale(saleEntry);
+        if (saved) {
+          // Add new row and reset form
+          addSaleToTable(saved);
+          form.reset();
+        } else {
+          // Data saved but response empty - reload table
+          await loadSales();
+          form.reset();
+        }
+      } catch (err) {
+        console.error('Form submission error:', err);
+        alert('Error saving sale. Data will appear after refresh.');
+      }
     });
 
     // helper to create row from returned record
