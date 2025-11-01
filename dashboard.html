@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="eng">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -13,43 +13,48 @@
   <div id="header">
     <div class="topnav" id="myTopnav">
       <a href="index.html">
-      <img src="images/g20logo.png" class="logo"></a>
+        <img src="images/g20logo.png" class="logo" alt="G20 Logo">
+      </a>
       <a href="sales.html">Sales</a>
       <a href="expenses.html">Expenses</a>
     </div>
   </div>
-    <h2>SALES SUMMARY DASHBOARD</h2>
+
+  <h2>SALES SUMMARY DASHBOARD</h2>
+
   <div class="summarycards">
     <div class="card">
       <h3>Balance B/F</h3>
-      <p>MWK44592</p>
+      <p id="balance_bbf">MWK0.00</p>
     </div>
 
     <div class="card">
       <h3>Accessories Value</h3>
-      <p>MWK0,00</p>
+      <p>MWK0.00</p>
     </div>
+
     <div class="card">
       <h3>Total Sales</h3>
       <p id="totalSales">MWK0.00</p>
     </div>
+
     <div class="card">
       <h3>Total Expenses</h3>
       <p id="totalExpenses">MWK0.00</p>
     </div>
+
     <div class="card">
       <h3>Net Profit</h3>
       <p id="netProfit">MWK0.00</p>
     </div>
   </div>
-    
+
   <footer>
     <p>&copy; 2025 GRAFFITECH20. All rights reserved.</p>
   </footer>
 
   <script>
   document.addEventListener('DOMContentLoaded', async function() {
-    // use the shared client created in supabase-config.js
     const supabase = window.SUPABASE;
     if (!supabase) {
       console.error('Supabase client not initialized. Check supabase-config.js and CDN include.');
@@ -57,18 +62,36 @@
     }
 
     try {
+      // Fetch sales data
       const { data: sales = [], error: salesErr } = await supabase.from('sales').select('*');
       if (salesErr) throw salesErr;
 
+      // Fetch expenses data
       const { data: expenses = [], error: expensesErr } = await supabase.from('expenses').select('*');
       if (expensesErr) throw expensesErr;
 
-      const totalSales = (sales || []).reduce((s, sale) => s + (Number(sale.total) || 0), 0);
-      const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      // Fetch latest balance
+      const { data: balanceData = [], error: balanceErr } = await supabase
+        .from('balance')
+        .select('balance')
+        .order('id', { ascending: false })  // change 'id' if your table uses a different key
+        .limit(1);
+      if (balanceErr) throw balanceErr;
 
+      // Calculate totals
+      const balance_bbf = balanceData.length > 0 ? Number(balanceData[0].balance) || 0 : 0;
+      const totalSales = (sales || []).reduce((sum, sale) => sum + (Number(sale.total) || 0), 0);
+      const totalExpenses = (expenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+
+      // Add balance to sales before profit
+      const totalWithBalance = totalSales + balance_bbf;
+      const netProfit = totalWithBalance - totalExpenses;
+
+      // Display results
+      document.getElementById('balance_bbf').textContent = `MWK${balance_bbf.toFixed(2)}`;
       document.getElementById('totalSales').textContent = `MWK${totalSales.toFixed(2)}`;
       document.getElementById('totalExpenses').textContent = `MWK${totalExpenses.toFixed(2)}`;
-      document.getElementById('netProfit').textContent = `MWK${(totalSales - totalExpenses).toFixed(2)}`;
+      document.getElementById('netProfit').textContent = `MWK${netProfit.toFixed(2)}`;
     } catch (err) {
       console.error('Error loading data:', err);
       alert('Error loading data. See console for details.');
@@ -76,5 +99,4 @@
   });
   </script>
 </body>
-
 </html>
