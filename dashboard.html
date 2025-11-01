@@ -62,32 +62,38 @@
     }
 
     try {
-      // Fetch sales data
+      // Fetch sales
       const { data: sales = [], error: salesErr } = await supabase.from('sales').select('*');
       if (salesErr) throw salesErr;
+      console.log("Sales data:", sales);
 
-      // Fetch expenses data
+      // Fetch expenses
       const { data: expenses = [], error: expensesErr } = await supabase.from('expenses').select('*');
       if (expensesErr) throw expensesErr;
+      console.log("Expenses data:", expenses);
 
-      // Fetch latest balance
-      const { data: balanceData = [], error: balanceErr } = await supabase
+      // Fetch balance
+      const { data: balanceData, error: balanceErr } = await supabase
         .from('balance')
         .select('balance')
-        .order('id', { ascending: false })  // change 'id' if your table uses a different key
+        .order('id', { ascending: false })
         .limit(1);
       if (balanceErr) throw balanceErr;
+      console.log("Balance data:", balanceData);
 
-      // Calculate totals
-      const balance_bbf = balanceData.length > 0 ? Number(balanceData[0].balance) || 0 : 0;
-      const totalSales = (sales || []).reduce((sum, sale) => sum + (Number(sale.total) || 0), 0);
-      const totalExpenses = (expenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+      // Use latest balance or 0 if none
+      const balance_bbf = (balanceData && balanceData.length > 0 && balanceData[0].balance) 
+        ? Number(balanceData[0].balance) 
+        : 0;
+      console.log("Parsed Balance:", balance_bbf);
 
-      // Add balance to sales before profit
+      // Compute totals
+      const totalSales = (sales || []).reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+      const totalExpenses = (expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
       const totalWithBalance = totalSales + balance_bbf;
       const netProfit = totalWithBalance - totalExpenses;
 
-      // Display results
+      // Display
       document.getElementById('balance_bbf').textContent = `MWK${balance_bbf.toFixed(2)}`;
       document.getElementById('totalSales').textContent = `MWK${totalSales.toFixed(2)}`;
       document.getElementById('totalExpenses').textContent = `MWK${totalExpenses.toFixed(2)}`;
