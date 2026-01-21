@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GRAFFITECH20 STATIONERY</title>
   <link rel="stylesheet" href="index.css">
-  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="supabase-config.js"></script>
 </head>
 <body>
   <div id="header">
@@ -35,52 +36,33 @@
   </footer>
 
   <script>
-    // multi-user login using localStorage 'users' array
-    function getUsers() {
-      try {
-        return JSON.parse(localStorage.getItem('users') || '[]');
-      } catch {
-        return [];
-      }
-    }
-    
-    function saveUsers(users) {
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-
-    // Define default users and ensure they exist
-    (function ensureDefaultUsers() {
-      const defaultUsers = [
-        { username: 'Jonko', password: 'Jonko@2019!' },
-        { username: 'Pak2025', password: 'Pakg20@2025!' },
-        { username: 'Bleston2025', password: 'Blessg20@2025!' },
-        { username: 'Cetridah2025', password: 'Cetridahg20@2025!' }
-      ];
-      
-      const existingUsers = getUsers();
-      if (!existingUsers.length) {
-        saveUsers(defaultUsers);
-        console.log('Default users created');
-      }
-    })();
-
-    // Keep the login handler
+    // Supabase Authentication Login
     document.addEventListener('DOMContentLoaded', () => {
       const form = document.querySelector('form[action="submit_registration.php"]') || document.querySelector('form');
-      form.addEventListener('submit', (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('email').value.trim();
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
-        const users = getUsers();
-        const match = users.find(u => u.username === username && u.password === password);
-        if (match) {
-          localStorage.setItem('loggedIn', 'true');
-          localStorage.setItem('currentUser', username);
-          window.location.href = 'dashboard.html';
-        } else {
-          alert('Invalid username or password');
-          document.getElementById('password').value = '';
-          document.getElementById('password').focus();
+        
+        try {
+          const { data, error } = await window.SUPABASE.auth.signInWithPassword({
+            email: email,
+            password: password
+          });
+          
+          if (error) {
+            alert('Invalid email or password');
+            document.getElementById('password').value = '';
+            document.getElementById('password').focus();
+          } else {
+            // Store the session and redirect
+            localStorage.setItem('loggedIn', 'true');
+            localStorage.setItem('currentUser', email);
+            window.location.href = 'dashboard.html';
+          }
+        } catch (err) {
+          alert('Login error: ' + err.message);
+          console.error('Login error:', err);
         }
       });
     });

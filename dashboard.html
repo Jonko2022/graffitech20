@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="eng">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -13,48 +13,43 @@
   <div id="header">
     <div class="topnav" id="myTopnav">
       <a href="index.html">
-        <img src="images/g20logo.png" class="logo" alt="G20 Logo">
-      </a>
+      <img src="images/g20logo.png" class="logo"></a>
       <a href="sales.html">Sales</a>
       <a href="expenses.html">Expenses</a>
     </div>
   </div>
-
-  <h2>SALES SUMMARY DASHBOARD</h2>
-
+    <h2>SALES SUMMARY DASHBOARD</h2>
   <div class="summarycards">
     <div class="card">
       <h3>Balance B/F</h3>
-      <p id="balance_bbf">MWK0.00</p>
+      <p>MWK0,00</p>
     </div>
 
     <div class="card">
       <h3>Accessories Value</h3>
-      <p>MWK0.00</p>
+      <p>MWK0,00</p>
     </div>
-
     <div class="card">
       <h3>Total Sales</h3>
       <p id="totalSales">MWK0.00</p>
     </div>
-
     <div class="card">
       <h3>Total Expenses</h3>
       <p id="totalExpenses">MWK0.00</p>
     </div>
-
     <div class="card">
       <h3>Net Profit</h3>
       <p id="netProfit">MWK0.00</p>
     </div>
   </div>
-
+    
   <footer>
     <p>&copy; 2025 GRAFFITECH20. All rights reserved.</p>
   </footer>
 
   <script>
   document.addEventListener('DOMContentLoaded', async function() {
+    // use the shared client created in supabase-config.js
     const supabase = window.SUPABASE;
     if (!supabase) {
       console.error('Supabase client not initialized. Check supabase-config.js and CDN include.');
@@ -62,42 +57,18 @@
     }
 
     try {
-      // Fetch sales
       const { data: sales = [], error: salesErr } = await supabase.from('sales').select('*');
       if (salesErr) throw salesErr;
-      console.log("Sales data:", sales);
 
-      // Fetch expenses
       const { data: expenses = [], error: expensesErr } = await supabase.from('expenses').select('*');
       if (expensesErr) throw expensesErr;
-      console.log("Expenses data:", expenses);
 
-      // Fetch balance
-      const { data: balanceData, error: balanceErr } = await supabase
-        .from('balance')
-        .select('balance')
-        .order('id', { ascending: false })
-        .limit(1);
-      if (balanceErr) throw balanceErr;
-      console.log("Balance data:", balanceData);
+      const totalSales = (sales || []).reduce((s, sale) => s + (Number(sale.total) || 0), 0);
+      const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-      // Use latest balance or 0 if none
-      const balance_bbf = (balanceData && balanceData.length > 0 && balanceData[0].balance) 
-        ? Number(balanceData[0].balance) 
-        : 0;
-      console.log("Parsed Balance:", balance_bbf);
-
-      // Compute totals
-      const totalSales = (sales || []).reduce((sum, s) => sum + (Number(s.total) || 0), 0);
-      const totalExpenses = (expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      const totalWithBalance = totalSales + balance_bbf;
-      const netProfit = totalWithBalance - totalExpenses;
-
-      // Display
-      document.getElementById('balance_bbf').textContent = `MWK${balance_bbf.toFixed(2)}`;
       document.getElementById('totalSales').textContent = `MWK${totalSales.toFixed(2)}`;
       document.getElementById('totalExpenses').textContent = `MWK${totalExpenses.toFixed(2)}`;
-      document.getElementById('netProfit').textContent = `MWK${netProfit.toFixed(2)}`;
+      document.getElementById('netProfit').textContent = `MWK${(totalSales - totalExpenses).toFixed(2)}`;
     } catch (err) {
       console.error('Error loading data:', err);
       alert('Error loading data. See console for details.');

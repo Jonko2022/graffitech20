@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inventory Form — Malawi Office Supplies</title>
+  <style>
+    :root{
+      --bg:#f7f5f0; --card:#fff; --muted:#667; --accent:#0f5132;
+      --row-alt:#faf7f3;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    body{background:var(--bg); margin:24px; color:var(--muted);}
+    .container{max-width:1200px; margin:0 auto; background:var(--card); padding:18px; border-radius:12px; box-shadow:0 6px 20px rgba(16,24,40,0.08);}
+    h1{color:var(--accent); margin:0 0 8px; font-size:20px;}
+    p.lead{margin:0 0 18px; color:#445; font-size:14px;}
+    table{width:100%; border-collapse:collapse; font-size:13px;}
+    thead th{position:sticky; top:0; background:#fff; z-index:2; text-align:left; padding:10px; border-bottom:2px solid #eee; color:var(--accent);}
+    tbody tr:nth-child(even){background:var(--row-alt);}
+    td, th{padding:8px 10px; vertical-align:middle;}
+    td.item{width:36%;}
+    input[type="number"]{width:120px; padding:6px 8px; border-radius:6px; border:1px solid #ddd; font-size:13px;}
+    input[type="text"]{width:100%; padding:6px 8px; border-radius:6px; border:1px solid #ddd; font-size:13px;}
+    .total-cell{font-weight:700; text-align:right;}
+    .grand{display:flex; justify-content:flex-end; gap:12px; margin-top:12px; align-items:center;}
+    .grand .label{color:#333; font-weight:600;}
+    .btns{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+    button{background:var(--accent); color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600;}
+    button.secondary{background:#657d73;}
+    .note{font-size:12px; color:#556; margin-top:8px;}
+    @media (max-width:860px){
+      td.item{width:40%;}
+      input[type="number"]{width:100px;}
+      thead th:nth-child(1), tbody td:nth-child(1){display:none;}
+    }
+    .summary{background:#f1f7ef; border:1px solid #e6f0e6; padding:10px 12px; border-radius:8px;}
+  </style>
+</head>
+<body>
+  <div class="container" role="main" aria-labelledby="title">
+    <h1 id="title">Inventory Form — Malawi Office Supplies</h1>
+    <p class="lead">Edit Selling Price or Closing Balance for any item. Totals update automatically. When ready, export the table to CSV or submit.</p>
+
+    <form id="inventoryForm" onsubmit="handleSubmit(event)">
+      <div style="overflow:auto; max-height:62vh;">
+        <table aria-describedby="tableDesc">
+          <caption id="tableDesc" style="text-align:left; padding:8px 0; font-size:13px; color:#556;"></caption>
+          <thead>
+            <tr>
+              <th>ITEM</th>
+              <th>Selling Price</th>
+              <th>Closing Balance</th>
+              <th style="text-align:right">Total</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- rows inserted by script -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grand" aria-live="polite">
+        <div class="summary">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <div class="label">Grand Total (MK):</div>
+            <div id="grandTotal" style="font-size:20px; font-weight:800; color:var(--accent)">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button type="button" onclick="recalculateAll()">Recalculate</button>
+        <button type="button" class="secondary" onclick="exportCSV()">Export CSV</button>
+        <button type="submit">Submit</button>
+      </div>
+
+      <p class="note">Tip: change numbers and press <strong>Recalculate</strong> (or edit an input and press Enter) to update totals.</p>
+    </form>
+  </div>
+
+  <script>
+    // Data array created from the values you provided.
+    // Each item: { item: string, price: number, closing: number }
+    const inventory = [
+      {item:"A4 ENVELOPES", price:400, closing:230},
+      {item:"A5 ENVELOPES", price:300, closing:7},
+      {item:"SMALL ENVELOPES", price:150, closing:145},
+      {item:"A5 EXERCISE BOOKS", price:550, closing:0},
+      {item:"A5 HARD COVERS", price:2000, closing:3},
+      {item:"A4 EXERCISE BOOKS", price:1500, closing:2},
+      {item:"A4 HARD COVERS (2500)", price:2500, closing:0},
+      {item:"A4 HARD COVERS (3000)", price:3000, closing:3},
+      {item:"RULED PAPERS", price:50, closing:0},
+      {item:"PLAIN PAPERS", price:50, closing:0},
+      {item:"RIMS OF PAPERS", price:23000, closing:0},
+      {item:"WRITING PAD (1000)", price:1500, closing:0},
+      {item:"WRITING PAD (2500)", price:2500, closing:9},
+      {item:"OFFICE FILE(6500)", price:6000, closing:3},
+      {item:"RING BINDER(5500)", price:5500, closing:3},
+      {item:"FLIPP CHART", price:400, closing:11},
+      {item:"CARBON PAPER", price:300, closing:14},
+      {item:"FILLING POCKETS SNAP", price:1500, closing:0},
+      {item:"CLEAR BAG FILLING POCKETS", price:1500, closing:0},
+      {item:"AIRTEL SIMCARDS", price:700, closing:21},
+      {item:"TNM SIMCARDS", price:700, closing:8},
+      {item:"PENCIL", price:200, closing:5},
+      {item:"PENCIL COLOUR (300)", price:300, closing:26},
+      {item:"CRAYONS(200)", price:200, closing:31},
+      {item:"MARKERS", price:400, closing:10},
+      {item:"RED PEN", price:300, closing:5},
+      {item:"BLUE PEN", price:300, closing:17},
+      {item:"BLACK PEN", price:300, closing:21},
+      {item:"BLACK PEN(800)", price:800, closing:0},
+      {item:"BIG PEN (BLACK)", price:600, closing:0},
+      {item:"BIG PEN (BLUE)", price:600, closing:0},
+      {item:"BIG PEN (RED)", price:600, closing:0},
+      {item:"RULER(400)", price:400, closing:44},
+      {item:"INSTRUMENTS", price:3500, closing:1},
+      {item:"CALCULTORS", price:6500, closing:3},
+      {item:"TIPEX", price:1500, closing:0},
+      {item:"SHARPENER", price:300, closing:0},
+      {item:"ERASERS", price:300, closing:0},
+      {item:"STICKERS", price:1000, closing:0},
+      {item:"STAPLES", price:300, closing:0},
+      {item:"ID BADGES", price:1000, closing:0},
+      {item:"MASK", price:200, closing:10},
+      {item:"RUBBER BANDS (3000)", price:3000, closing:0},
+      {item:"RUBBER BANDS (3500)", price:3500, closing:0},
+      {item:"INDOSING INK", price:2000, closing:0},
+      {item:"DUSTER", price:2000, closing:0},
+      {item:"CHALK BOXES", price:3500, closing:6},
+      {item:"TORCHES", price:2500, closing:2},
+      {item:"SUPER GLUE", price:500, closing:10},
+      {item:"BIG OFFICE GLUE", price:2500, closing:0},
+      {item:"SMALL GLUE", price:2000, closing:0},
+      {item:"LOCKS (2000)", price:2000, closing:7},
+      {item:"LOCKS (2500)", price:2500, closing:8},
+      {item:"LOCKS (4000)", price:4000, closing:11},
+      {item:"LOCKS (800)", price:800, closing:0},
+      {item:"WATCHES BATTERIES", price:200, closing:8},
+      {item:"WATCHES (5000)", price:5000, closing:0},
+      {item:"CELLOTAPE SMALL", price:700, closing:7},
+      {item:"CELLOTAPE LARGE", price:2500, closing:0},
+      {item:"CELLOTAPE BLACK", price:1000, closing:26},
+      {item:"PLASTER", price:2500, closing:5},
+      {item:"ENERGY SAVER BULBS (2500)", price:2500, closing:19},
+      {item:"ENERGY SAVER BULBS (2000)", price:2000, closing:5},
+      {item:"ENERGY SAVER BULBS (1500)", price:1500, closing:0},
+      {item:"100 WATT BULB", price:1000, closing:0},
+      {item:"SMALL BULB HOLDER", price:1500, closing:0},
+      {item:"BULB HOLDER", price:2000, closing:0},
+      {item:"SOLAR BULBS", price:3000, closing:1},
+      {item:"16 GB FLASH", price:14000, closing:0},
+      {item:"8 GB FLASH", price:11000, closing:2},
+      {item:"4 GB FLASH", price:8000, closing:0},
+      {item:"4 GB MC", price:6500, closing:2},
+      {item:"2 GB MC", price:5500, closing:10},
+      {item:"CARD READER (800)", price:800, closing:0},
+      {item:"CARD READER (600)", price:600, closing:0},
+      {item:"ADAPTER", price:400, closing:0},
+      {item:"OTG", price:1500, closing:0},
+      {item:"AUX IN", price:1500, closing:0},
+      {item:"SOUND CARD", price:3000, closing:4},
+      {item:"BATTERFLY", price:6000, closing:8},
+      {item:"VGA CABLES", price:5000, closing:1},
+      {item:"AV CABLES", price:2000, closing:4},
+      {item:"MOUSE", price:3000, closing:3},
+      {item:"MODULATORS", price:6000, closing:0},
+      {item:"TOP PLUG", price:5000, closing:5},
+      {item:"P47 HEAD SET", price:7000, closing:0},
+      {item:"RXD HEAD SET (3000)", price:3000, closing:8},
+      {item:"RXD HEAD SET (1500)", price:2000, closing:0},
+      {item:"ORAIMO HEAD SET", price:3000, closing:10},
+      {item:"ORAIMO CABLES(3 IN 1)", price:4500, closing:5},
+      {item:"ORAIMO CABLES-B-TYPE (2000)", price:2000, closing:0},
+      {item:"ORAIMO CABLES-C-TYPE", price:4000, closing:0},
+      {item:"VILLAONTEL CHARGERS", price:6500, closing:3},
+      {item:"ORAIMO CHARGERS (6500)", price:6500, closing:1},
+      {item:"SIVIA COMPLETE B-TYPE", price:7000, closing:0},
+      {item:"SIVIA INCOMPLETE HEAD", price:4000, closing:5},
+      {item:"SIVIA COMPLETE C-TYPE", price:7000, closing:0},
+      {item:"SIVIA TYPE-C CABLES", price:3500, closing:0},
+      {item:"SIVIA TYPE-B CABLES", price:2500, closing:0},
+      {item:"OD6 CABLE C-TYPE", price:3500, closing:6},
+      {item:"OD6 CABLE B-TYPE", price:3000, closing:0},
+      {item:"BLUETOOTH BATTERIES", price:3000, closing:1},
+      {item:"PROTEA USB-B-TYPE", price:2000, closing:2},
+      {item:"ITEL CHARGERS", price:4000, closing:4},
+      {item:"SAMSUNG CHARGERS", price:6000, closing:3},
+      {item:"MULTI-CHARGER", price:2000, closing:1},
+      {item:"TECNO CABLES", price:2000, closing:0},
+      {item:"ITEL CABLES", price:2000, closing:0},
+      {item:"BIG ITEL BATTERIES", price:11000, closing:2},
+      {item:"SMALL ITEL BATTERIES", price:7000, closing:6},
+      {item:"VILLAONE SMALL BATTERIES", price:5500, closing:0},
+      {item:"ORAIMO SMALL BATTERIES", price:6000, closing:2},
+      {item:"ORAIMO BIG BATTERIES", price:11000, closing:0},
+      {item:"ALKALINE BATTERIES", price:500, closing:0},
+      {item:"R6 BATTERIES", price:300, closing:120},
+      {item:"R3 BATTERIES", price:200, closing:13},
+      {item:"I YOU PHONES", price:40000, closing:0},
+      {item:"NOKIA PHONE", price:30000, closing:0},
+      {item:"ITEL PHONES 2160", price:48000, closing:0},
+      {item:"ITEL PHONES 5606", price:75000, closing:0},
+      {item:"SCREEN PROTECTOR", price:2500, closing:8},
+      {item:"HEAD SET (2000)", price:2000, closing:0},
+      {item:"PC COMPLETE CHARGER", price:60000, closing:0},
+      {item:"PC UNCOMPLETE CHARGER", price:35000, closing:0},
+      {item:"(UNLABELED ROW)", price:2500, closing:0}
+    ];
+
+    // populate table
+    const tbody = document.getElementById('tableBody');
+
+    function createRow(itemObj, index){
+      const tr = document.createElement('tr');
+      // item name
+      const tdItem = document.createElement('td');
+      tdItem.className = 'item';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = itemObj.item;
+      nameInput.dataset.index = index;
+      nameInput.addEventListener('change', ()=> inventory[index].item = nameInput.value);
+      tdItem.appendChild(nameInput);
+      tr.appendChild(tdItem);
+
+      // price
+      const tdPrice = document.createElement('td');
+      const priceInput = document.createElement('input');
+      priceInput.type = 'number';
+      priceInput.min = 0;
+      priceInput.step = 1;
+      priceInput.value = itemObj.price;
+      priceInput.dataset.index = index;
+      priceInput.addEventListener('change', onCellChange);
+      tdPrice.appendChild(priceInput);
+      tr.appendChild(tdPrice);
+
+      // closing balance
+      const tdClose = document.createElement('td');
+      const closeInput = document.createElement('input');
+      closeInput.type = 'number';
+      closeInput.min = 0;
+      closeInput.step = 1;
+      closeInput.value = itemObj.closing;
+      closeInput.dataset.index = index;
+      closeInput.addEventListener('change', onCellChange);
+      tdClose.appendChild(closeInput);
+      tr.appendChild(tdClose);
+
+      // total
+      const tdTotal = document.createElement('td');
+      tdTotal.className = 'total-cell';
+      tdTotal.id = 'total-' + index;
+      tdTotal.textContent = formatNumber(itemObj.price * itemObj.closing);
+      tr.appendChild(tdTotal);
+
+      return tr;
+    }
+
+    function formatNumber(n){
+      // format as integer with comma separators
+      const num = Number(n) || 0;
+      return num.toLocaleString('en-US', {maximumFractionDigits:0});
+    }
+
+    function onCellChange(e){
+      const idx = Number(e.target.dataset.index);
+      const row = inventory[idx];
+      // parse values carefully
+      const priceInput = Number(document.querySelector(`input[type="number"][data-index="${idx}"]`)?.value || 0);
+      // There are two number inputs; determine which is which by reading both in row order:
+      const inputs = Array.from(document.querySelectorAll(`input[data-index="${idx}"]`)).filter(i=> i.type === 'number');
+      // We expect first to be price and second to be closing, but keep robust:
+      let priceVal = Number(inputs[0]?.value || 0);
+      let closeVal = Number(inputs[1]?.value || 0);
+      // If either is NaN, fallback to original row values:
+      if (isNaN(priceVal)) priceVal = row.price || 0;
+      if (isNaN(closeVal)) closeVal = row.closing || 0;
+
+      // update underlying data
+      inventory[idx].price = Math.max(0, Math.floor(priceVal));
+      inventory[idx].closing = Math.max(0, Math.floor(closeVal));
+      // update UI total cell
+      document.getElementById('total-' + idx).textContent = formatNumber(inventory[idx].price * inventory[idx].closing);
+      // update grand total
+      updateGrandTotal();
+    }
+
+    function recalculateAll(){
+      // recompute every row total and grand total
+      inventory.forEach((row, i) => {
+        // ensure numeric
+        row.price = Number(row.price) || 0;
+        row.closing = Number(row.closing) || 0;
+        const totalCell = document.getElementById('total-' + i);
+        if (totalCell) totalCell.textContent = formatNumber(row.price * row.closing);
+        // reflect input fields in case data changed programmatically
+        const priceInput = document.querySelectorAll(`input[type="number"][data-index="${i}"]`)[0];
+        const closeInput = document.querySelectorAll(`input[type="number"][data-index="${i}"]`)[1];
+        if (priceInput) priceInput.value = row.price;
+        if (closeInput) closeInput.value = row.closing;
+      });
+      updateGrandTotal();
+    }
+
+    function updateGrandTotal(){
+      const sum = inventory.reduce((acc, r) => acc + (Number(r.price) || 0) * (Number(r.closing) || 0), 0);
+      document.getElementById('grandTotal').textContent = formatNumber(sum);
+    }
+
+    // render initial rows
+    inventory.forEach((it, idx) => {
+      tbody.appendChild(createRow(it, idx));
+    });
+
+    // initial compute
+    recalculateAll();
+
+    // form submit handler (example)
+    function handleSubmit(e){
+      e.preventDefault();
+      // Collect current values from inputs to ensure sync
+      inventory.forEach((row, i) => {
+        const inputs = Array.from(document.querySelectorAll(`input[data-index="${i}"]`));
+        if (inputs.length){
+          const name = inputs.find(n => n.type === 'text')?.value || row.item;
+          const nums = inputs.filter(n => n.type === 'number').map(n => Number(n.value || 0));
+          row.item = name;
+          row.price = Math.max(0, Math.floor(nums[0] || 0));
+          row.closing = Math.max(0, Math.floor(nums[1] || 0));
+        }
+      });
+      updateGrandTotal();
+
+      // For this demo: show JSON in a new window (in production you'd send to server)
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        grandTotal: inventory.reduce((acc, r) => acc + (Number(r.price) || 0) * (Number(r.closing) || 0), 0),
+        rows: inventory
+      };
+      const w = window.open('', '_blank');
+      w.document.write('<pre>' + JSON.stringify(payload, null, 2) + '</pre>');
+      w.document.title = 'Submitted Inventory JSON';
+    }
+
+    // CSV export
+    function exportCSV(){
+      // build CSV string
+      const headers = ['ITEM','SELLING PRICE','CLOSING BALANCE','TOTAL'];
+      const lines = [headers.join(',')];
+      inventory.forEach(r => {
+        const total = (Number(r.price) || 0) * (Number(r.closing) || 0);
+        // escape commas in item
+        const item = `"${String(r.item).replace(/"/g,'""')}"`;
+        lines.push([item, r.price, r.closing, total].join(','));
+      });
+      const csv = lines.join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'inventory_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

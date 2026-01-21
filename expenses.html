@@ -11,12 +11,30 @@
   <script src="supabase-config.js"></script>
 </head>
 <body>
+  <!-- Auth check - redirect to login if not authenticated -->
+  <script>
+    window.addEventListener('load', async () => {
+      if (!window.SUPABASE) {
+        console.error('Supabase not initialized');
+        window.location.href = 'index.html';
+        return;
+      }
+      
+      const { data: { session }, error } = await window.SUPABASE.auth.getSession();
+      if (!session || error) {
+        // Not authenticated - redirect to login
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+  
   <div id="header">
     <div class="topnav" id="myTopnav">
       <a href="index.html">
       <img src="images/g20logo.png" class="logo"></a>
       <a href="dashboard.html">Dashboard</a>
       <a href="sales.html">Sales</a>
+      <button id="logout-btn" style="background:none;border:none;color:white;cursor:pointer;font-size:16px;">Logout</button>
     </div>
   </div>
   
@@ -162,7 +180,9 @@
         const name = (document.getElementById('expensename').value || '').trim();
         const rawAmount = (document.getElementById('expenseamount').value || '').replace(/,/g, '');
         const amount = parseFloat(rawAmount) || 0;
-        const currentUser = localStorage.getItem('currentUser') || null;
+        
+        const { data: { session } } = await window.SUPABASE.auth.getSession();
+        const currentUser = session?.user?.email || null;
 
         const expenseEntry = { date, name, amount, user: currentUser };
 
@@ -182,6 +202,14 @@
         console.error('Form submission error:', err);
         showMessage('Error saving expense (see console)', 4000);
       }
+    });
+
+    // Logout handler
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await window.SUPABASE.auth.signOut();
+      localStorage.removeItem('loggedIn');
+      localStorage.removeItem('currentUser');
+      window.location.href = 'index.html';
     });
 
     // initial load
